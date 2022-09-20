@@ -14,7 +14,6 @@ import { ROUTER_ADDRESS } from "../config";
 import { AmountIn, AmountOut, Balance } from "./";
 import styles from "../styles";
 import {
-  getAvailableHelpers,
   getCounterpartTokens,
   findPoolByTokens,
   isOperationPending,
@@ -25,11 +24,11 @@ import {
 
 const Exchange = ({ pools }) => {
   const { account } = useEthers();
-  const [fromValue, setFromValue] = useState("0");
+  const [fromValue, setFromValue] = useState("");
   const [fromToken, setFromToken] = useState(pools[0].token0Address);
   const [toToken, setToToken] = useState("");
   const [resetState, setResetState] = useState(false);
-  const fromValueBigNumber = parseUnits(fromValue);
+  const fromValueBigNumber = parseUnits(fromValue || "0");
   const availableTokens = getAvailableTokens(pools);
   const counterpartTokens = getCounterpartTokens(pools, fromToken);
   const pairAddress =
@@ -42,16 +41,16 @@ const Exchange = ({ pools }) => {
   const tokenAllowance =
     useTokenAllowance(fromToken, account, ROUTER_ADDRESS) || parseUnits("0");
   const approvedNeeded = fromValueBigNumber.gt(tokenAllowance);
-  const fromValueIsGreaterThan0 = fromValueBigNumber.gt(parseUnits("0"));
+  const formValueIsGreaterThan0 = fromValueBigNumber.gt(parseUnits("0"));
   const hasEnoughBalance = fromValueBigNumber.lte(
     fromTokenBalance ?? parseUnits("0")
   );
-  const { state: swapApproveState, send: swapExecuteSend } =
+  const { state: swapApproveState, send: swapApproveSend } =
     useContractFunction(fromTokenContract, "approve", {
       transactionName: "onApproveRequested",
       gasLimitBufferPercentage: 10,
     });
-  const { state: swapExecuteState, send: swapApproveSend } =
+  const { state: swapExecuteState, send: swapExecuteSend } =
     useContractFunction(routerContract, "swapExactTokensForTokens", {
       transactionName: "swapExactTokensForTokens",
       gasLimitBufferPercentage: 10,
@@ -62,8 +61,8 @@ const Exchange = ({ pools }) => {
   const canApprove = !isApproving && approvedNeeded;
   const canSwap =
     !isSwapping &&
-    approvedNeeded &&
-    fromValueIsGreaterThan0 &&
+    !approvedNeeded &&
+    formValueIsGreaterThan0 &&
     hasEnoughBalance;
   const successMessage = getSuccessMessage(swapApproveState, swapExecuteState);
   const failureMessage = getFailureMessage(swapApproveState, swapExecuteState);
@@ -87,10 +86,8 @@ const Exchange = ({ pools }) => {
     const trimmedValue = value.trim();
 
     try {
-      if (trimmedValue) {
-        parseUnits(value);
-        setFromValue(value);
-      }
+      trimmedValue && parseUnits(value);
+      setFromValue(value);
     } catch (error) {
       console.log(error);
     }
@@ -108,7 +105,7 @@ const Exchange = ({ pools }) => {
     if (failureMessage || successMessage) {
       setTimeout(() => {
         setResetState(true);
-        setFromValue("0");
+        setFromValue("");
         setToToken("");
       }, 5000);
     }
